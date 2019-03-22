@@ -18,6 +18,19 @@ def show_all_occurrences():
         occurrence.isLightBulbOn = True
 
 
+def hide_all_occurrences():
+    ao = AppObjects()
+
+    for occurrence in ao.root_comp.allOccurrences:
+        occurrence.isLightBulbOn = True
+
+
+def show_occurrence(occurrence: adsk.fusion.Occurrence):
+    occurrence.isLightBulbOn = True
+    for body in occurrence.bRepBodies:
+        make_body_visible(body)
+
+
 def hide_all_bodies():
     ao = AppObjects()
 
@@ -25,6 +38,20 @@ def hide_all_bodies():
         component.isBodiesFolderLightBulbOn = True
         for body in component.bRepBodies:
             body.isLightBulbOn = False
+
+
+def show_sketch(sketch):
+    sketch.areDimensionsShown = True
+    sketch.areConstraintsShown = True
+    sketch.areProfilesShown = True
+    sketch.isLightBulbOn = True
+
+
+def hide_all_sketches():
+    ao = AppObjects()
+    for component in ao.design.allComponents:
+        for sketch in component.sketches:
+            sketch.isLightBulbOn = False
 
 
 def revert_last():
@@ -35,6 +62,7 @@ def isolate():
     show_all_occurrences()
     hide_all_bodies()
     revert_last()
+    hide_all_sketches()
 
 
 def make_component_visible(component):
@@ -85,12 +113,16 @@ def get_component(feature):
 
 
 def build_display_state_object():
+
     global display_state_object
+
     ao = AppObjects()
     root_comp = ao.root_comp
 
     display_state_object = {
-        "components": {}
+        "components": {},
+        "sketches": {},
+        "bodies": {}
     }
 
     if root_comp is not None:
@@ -103,8 +135,11 @@ def build_display_state_object():
         for component in ao.design.allComponents:
             display_state_object["components"][component.name] = component.isBodiesFolderLightBulbOn
 
+            for sketch in component.sketches:
+                display_state_object["sketches"][component.name + "_" + sketch.name] = sketch.isLightBulbOn
+
             for body in component.bRepBodies:
-                display_state_object["components"][component.name + "_" + body.name] = body.isLightBulbOn
+                display_state_object["bodies"][component.name + "_" + body.name] = body.isLightBulbOn
 
     # return display_state_object
 
@@ -135,22 +170,28 @@ def reset_display_state():
 
         for body in component.bRepBodies:
 
-            state = display_state_object["components"].get(component.name + "_" + body.name, None)
+            state = display_state_object["bodies"].get(component.name + "_" + body.name, None)
 
             if state is not None:
                 body.isLightBulbOn = state
 
+        for sketch in component.sketches:
+
+            state = display_state_object["sketches"].get(component.name + "_" + sketch.name, None)
+
+            if state is not None:
+                sketch.isLightBulbOn = state
+
 
 def make_message(result):
-
-    timeline_message = "<b>Feature Information</b><br /><br />"
-    timeline_message += "<b>Name: &nbsp;&nbsp; </b>" + result["name"] + "<br />"
-    timeline_message += "<b>Type: &nbsp;&nbsp; </b>" + result["type"] + "<br />"
+    timeline_message = "<b>Feature Information</b><br />"
+    timeline_message += "<b>&nbsp;&nbsp;&nbsp;&nbsp; Name: &nbsp;&nbsp; </b>" + result["name"] + "<br />"
+    timeline_message += "<b>&nbsp;&nbsp;&nbsp;&nbsp; Type: &nbsp;&nbsp; &nbsp;</b>" + result["type"] + "<br />"
 
     health_state = result.get("health_state", None)
 
     if health_state is not None:
-        timeline_message += "<b>Health: &nbsp;&nbsp; </b>"
+        timeline_message += "<b>&nbsp;&nbsp;&nbsp;&nbsp; Health: &nbsp; </b>"
         health = next(name for name, value in vars(adsk.fusion.FeatureHealthStates).items() if value == health_state)
 
         if health_state == adsk.fusion.FeatureHealthStates.HealthyFeatureHealthState:
@@ -158,23 +199,39 @@ def make_message(result):
 
         timeline_message += health + "<br />"
 
-    components = result.get("components", [])
+    if result.get("type", "") == "Sketch":
+        timeline_message += "<br /><b>Sketch Information</b><br />"
+        timeline_message += "<b>&nbsp;&nbsp;&nbsp;&nbsp; Fully Constrained: &nbsp;&nbsp; </b>"
+        timeline_message += str(result["fully_constrained"]) + "<br />"
+        timeline_message += "<b>&nbsp;&nbsp;&nbsp;&nbsp; Parent Component: &nbsp;&nbsp; </b>"
+        timeline_message += result["parent_component"] + "<br />"
+        timeline_message += "<b>&nbsp;&nbsp;&nbsp;&nbsp; Sketch Plane: &nbsp;&nbsp; </b>"
+        timeline_message += result["plane"] + "<br />"
+        timeline_message += "<b>&nbsp;&nbsp;&nbsp;&nbsp; Plane Type: &nbsp;&nbsp; </b>"
+        timeline_message += result["plane_type"] + "<br />"
 
-    if len(components) > 0:
-        timeline_message += "<br /><b>Affected Components: </b>"
+    elif result.get("type", "") == "Make Component":
+        timeline_message += "<b>&nbsp;&nbsp;&nbsp;&nbsp; Component: &nbsp;&nbsp; </b>"
+        timeline_message += result["parent_component"] + "<br />"
 
-        for component in components:
-            timeline_message += "<br /><b> &nbsp;&nbsp;&nbsp;&nbsp;" + component["name"] + "</b><br />"
+    elif result.get("type", "") == "Feature":
+        components = result.get("components", [])
 
-            bodies = component.get("bodies", [])
+        if len(components) > 0:
+            timeline_message += "<br /><b>Affected Components: </b>"
 
-            if len(bodies) > 0:
-                timeline_message += "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"
-                timeline_message += "Affected Bodies:<br />"
+            for component in components:
+                timeline_message += "<br /><b> &nbsp;&nbsp;&nbsp;&nbsp;" + component["name"] + "</b><br />"
 
-                for body in bodies:
-                    timeline_message += "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; "
-                    timeline_message += body["name"] + "<br />"
+                bodies = component.get("bodies", [])
+
+                if len(bodies) > 0:
+                    timeline_message += "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"
+                    timeline_message += "Affected Bodies:<br />"
+
+                    for body in bodies:
+                        timeline_message += "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; "
+                        timeline_message += body["name"] + "<br />"
 
     warning = result.get("error_message", "")
 
@@ -206,18 +263,21 @@ def play_feature():
     else:
 
         timeline.movetoNextStep()
-        feature = adsk.fusion.Feature.cast(timeline_object.entity)
 
         result["entity"] = timeline_object.entity
         result["index"] = timeline_object.index
         result["suppressed"] = timeline_object.isSuppressed
         result["name"] = timeline_object.name
 
+        feature = adsk.fusion.Feature.cast(timeline_object.entity)
+        sketch = adsk.fusion.Sketch.cast(timeline_object.entity)
+        occurrence = adsk.fusion.Occurrence.cast(timeline_object.entity)
+
         if feature is not None:
             isolate()
             result["error_message"] = timeline_object.errorOrWarningMessage
             result["health_state"] = timeline_object.healthState
-            result["type"] = "feature"
+            result["type"] = "Feature"
             result["feature"] = feature
             result["components"] = []
             result["components"].append(get_component(feature))
@@ -226,8 +286,48 @@ def play_feature():
                 for this_feature in feature.linkedFeatures:
                     result["components"].append(get_component(this_feature))
 
+        elif sketch is not None:
+            isolate()
+            show_sketch(sketch)
+            make_component_visible(sketch.parentComponent)
+
+            result["error_message"] = sketch.errorOrWarningMessage
+            result["health_state"] = sketch.healthState
+            result["type"] = "Sketch"
+            result["sketch"] = sketch
+            result["fully_constrained"] = sketch.isFullyConstrained
+            result["parent_component"] = sketch.parentComponent.name
+            reference_plane = sketch.referencePlane
+
+            face = adsk.fusion.BRepFace.cast(reference_plane)
+            plane = adsk.fusion.ConstructionPlane.cast(reference_plane)
+
+            if face is not None:
+                result["plane"] = "Face ID: " + str(face.tempId)
+                result["plane_type"] = "Planar Face"
+                result["plane_entity"] = face
+                make_body_visible(face.body)
+
+            elif plane is not None:
+                result["plane"] = plane.name
+                result["plane_type"] = "Construction Plane"
+                result["plane_entity"] = plane
+
+            else:
+                result["plane"] = "Unknown Sketch Plane"
+                result["plane_type"] = "unknown"
+                result["plane_entity"] = reference_plane
+
+        elif occurrence is not None:
+            isolate()
+            show_occurrence(occurrence)
+            result["type"] = "Make Component"
+            result["occurrence"] = occurrence
+            result["parent_component"] = occurrence.component.name
+
         else:
             result["type"] = "other"
+            ao.ui.messageBox(timeline_object.entity.objectType)
 
     return result
 
@@ -274,7 +374,7 @@ class PlayerCommand(Fusion360CommandBase):
         #         if button.name == "play":
         #             if more_features():
         #                 ao.ui.commandDefinitions.itemById("cmdID_PlayerCommand").execute()
-                    # button.isSelected = False
+        # button.isSelected = False
 
         pass
 
@@ -284,6 +384,8 @@ class PlayerCommand(Fusion360CommandBase):
         ao = AppObjects()
         if more_features():
             ao.ui.commandDefinitions.itemById("cmdID_PlayerCommand").execute()
+        else:
+            reset_display_state()
 
     # Run when the user selects your command icon from the Fusion 360 UI
     # Typically used to create and display a command dialog box
@@ -310,8 +412,7 @@ class PlayerCommand(Fusion360CommandBase):
         # inputs.addTextBoxCommandInput("message_id", "", str(result), 20, True)
 
 
-
-class FirstPlayerCommand(Fusion360CommandBase):
+class PlayFromHereCommand(Fusion360CommandBase):
 
     def on_execute(self, command: adsk.core.Command, inputs: adsk.core.CommandInputs, args, input_values):
         global display_state_object
@@ -319,5 +420,19 @@ class FirstPlayerCommand(Fusion360CommandBase):
         ao = AppObjects()
 
         build_display_state_object()
+
+        ao.ui.commandDefinitions.itemById("cmdID_PlayerCommand").execute()
+
+
+class PlayFromStartCommand(Fusion360CommandBase):
+
+    def on_execute(self, command: adsk.core.Command, inputs: adsk.core.CommandInputs, args, input_values):
+        global display_state_object
+
+        ao = AppObjects()
+
+        build_display_state_object()
+
+        ao.time_line.moveToBeginning()
 
         ao.ui.commandDefinitions.itemById("cmdID_PlayerCommand").execute()

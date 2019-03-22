@@ -1,7 +1,7 @@
 # Importing sample Fusion Command
 # Could import multiple Command definitions here
 from .Demo1Command import Demo1Command
-from .PlayerCommand import PlayerCommand, FirstPlayerCommand
+from .PlayerCommand import PlayerCommand, PlayFromHereCommand, PlayFromStartCommand
 from .DemoPaletteCommand import DemoPaletteShowCommand, DemoPaletteSendCommand
 
 commands = []
@@ -9,14 +9,27 @@ command_definitions = []
 
 # Define parameters for 1st command
 cmd = {
-    'cmd_name': 'Play Timeline',
+    'cmd_name': 'Play From Begining',
     'cmd_description': 'Detailed View Playback',
-    'cmd_id': 'cmdID_FirstPlayerCommand',
+    'cmd_id': 'cmdID_PlayFromHereCommand',
+    'cmd_resources': './resources',
+    'workspace': 'FusionSolidEnvironment',
+    'toolbar_panel_id': 'Player',
+    'command_promoted': False,
+    'class': PlayFromStartCommand
+}
+command_definitions.append(cmd)
+
+# Define parameters for 1st command
+cmd = {
+    'cmd_name': 'Play From Here',
+    'cmd_description': 'Detailed View Playback',
+    'cmd_id': 'cmdID_PlayFromStartCommand',
     'cmd_resources': './resources',
     'workspace': 'FusionSolidEnvironment',
     'toolbar_panel_id': 'Player',
     'command_promoted': True,
-    'class': FirstPlayerCommand
+    'class': PlayFromHereCommand
 }
 command_definitions.append(cmd)
 
