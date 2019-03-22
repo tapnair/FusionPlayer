@@ -357,6 +357,7 @@ def play_feature():
 
         timeline.movetoNextStep()
 
+
         result["entity"] = timeline_object.entity
         result["index"] = timeline_object.index
         result["suppressed"] = timeline_object.isSuppressed
@@ -465,6 +466,8 @@ def play_feature():
 
         else:
             result["type"] = timeline_object.entity.objectType
+
+        # ao.app.activeViewport.fit()
 
     return result
 
