@@ -20,7 +20,6 @@ Starts playing the timeline from the current marker position.
 Starts playing the timeline from the begining.
 
 The advantage here is that it will remember the current hide/show state of everything in your model when the command starts.
-
 If you roll back to an arbitrary point in time you may end up with weird results at the end of playback.
 
 
