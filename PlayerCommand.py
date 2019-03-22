@@ -326,8 +326,7 @@ def play_feature():
             result["parent_component"] = occurrence.component.name
 
         else:
-            result["type"] = "other"
-            ao.ui.messageBox(timeline_object.entity.objectType)
+            result["type"] = timeline_object.entity.objectType
 
     return result
 
