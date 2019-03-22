@@ -9,12 +9,19 @@ _Note: there are a bunch of things I still have planned for this_
 
 ## Commands:
 
-### Play Timeline
-
 Allows you to step through the timeline one feature at a time and see details about that feature.
 
 Also, only the affected bodies (and components) are displyed on each time step.
 
+### Play From Here
+Starts playing the timeline from the current marker position.
+
+### Play From Begining
+Starts playing the timeline from the begining.
+
+The advantage here is that it will remember the current hide/show state of everything in your model when the command starts.
+
+If you roll back to an arbitrary point in time you may end up with weird results at the end of playback.
 
 
 ## Setup
