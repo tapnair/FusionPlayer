@@ -47,6 +47,54 @@ def show_sketch(sketch):
     sketch.isLightBulbOn = True
 
 
+def show_construction(entity):
+    entity.component.isConstructionFolderLightBulbOn = True
+    entity.component.isOriginFolderLightBulbOn = True
+    entity.isLightBulbOn = True
+
+
+def show_joint(joint: adsk.fusion.Joint):
+    joint.parentComponent.isJointsFolderLightBulbOn = True
+    joint.isLightBulbOn = True
+
+
+def hide_all_construction():
+    ao = AppObjects()
+    for component in ao.design.allComponents:
+        for item in get_all_construction(component):
+            item.isLightBulbOn = False
+
+
+def hide_all_joints():
+    ao = AppObjects()
+    for component in ao.design.allComponents:
+        for item in component.joints:
+            if item.timelineObject.index < ao.time_line.markerPosition:
+                item.isLightBulbOn = False
+
+
+def get_all_construction(component: adsk.fusion.Component):
+
+    construction_entities = []
+
+    for plane in component.constructionPlanes:
+        construction_entities.append(plane)
+    for axis in component.constructionAxes:
+        construction_entities.append(axis)
+    for point in component.constructionPoints:
+        construction_entities.append(point)
+
+    construction_entities.append(component.xConstructionAxis)
+    construction_entities.append(component.yConstructionAxis)
+    construction_entities.append(component.zConstructionAxis)
+    construction_entities.append(component.xYConstructionPlane)
+    construction_entities.append(component.xZConstructionPlane)
+    construction_entities.append(component.yZConstructionPlane)
+    construction_entities.append(component.originConstructionPoint)
+
+    return construction_entities
+
+
 def hide_all_sketches():
     ao = AppObjects()
     for component in ao.design.allComponents:
@@ -54,15 +102,12 @@ def hide_all_sketches():
             sketch.isLightBulbOn = False
 
 
-def revert_last():
-    pass
-
-
 def isolate():
     show_all_occurrences()
     hide_all_bodies()
-    revert_last()
     hide_all_sketches()
+    hide_all_construction()
+    hide_all_joints()
 
 
 def make_component_visible(component):
@@ -122,7 +167,10 @@ def build_display_state_object():
     display_state_object = {
         "components": {},
         "sketches": {},
-        "bodies": {}
+        "bodies": {},
+        "construction": {},
+        "origin": {},
+        "joints": {}
     }
 
     if root_comp is not None:
@@ -134,12 +182,22 @@ def build_display_state_object():
 
         for component in ao.design.allComponents:
             display_state_object["components"][component.name] = component.isBodiesFolderLightBulbOn
+            display_state_object["sketches"][component.name] = component.isSketchFolderLightBulbOn
+            display_state_object["construction"][component.name] = component.isConstructionFolderLightBulbOn
+            display_state_object["origin"][component.name] = component.isOriginFolderLightBulbOn
+            display_state_object["joints"][component.name] = component.isJointsFolderLightBulbOn
 
             for sketch in component.sketches:
                 display_state_object["sketches"][component.name + "_" + sketch.name] = sketch.isLightBulbOn
 
             for body in component.bRepBodies:
                 display_state_object["bodies"][component.name + "_" + body.name] = body.isLightBulbOn
+
+            for entity in get_all_construction(component):
+                display_state_object["construction"][component.name + "_" + entity.name] = entity.isLightBulbOn
+
+            for joint in component.joints:
+                display_state_object["joints"][component.name + "_" + joint.name] = joint.isLightBulbOn
 
     # return display_state_object
 
@@ -163,24 +221,45 @@ def reset_display_state():
 
     for component in ao.design.allComponents:
 
-        state = display_state_object["components"].get(component.name, None)
+        body_folder_state = display_state_object["components"].get(component.name, None)
+        if body_folder_state is not None:
+            component.isBodiesFolderLightBulbOn = body_folder_state
 
-        if state is not None:
-            component.isBodiesFolderLightBulbOn = state
+        sketch_folder_state = display_state_object["sketches"].get(component.name, None)
+        if sketch_folder_state is not None:
+            component.isSketchFolderLightBulbOn = sketch_folder_state
+
+        construction_folder_state = display_state_object["construction"].get(component.name, None)
+        if construction_folder_state is not None:
+            component.isConstructionFolderLightBulbOn = construction_folder_state
+
+        origin_folder_state = display_state_object["origin"].get(component.name, None)
+        if origin_folder_state is not None:
+            component.isOriginFolderLightBulbOn = origin_folder_state
+
+        joint_folder_state = display_state_object["joints"].get(component.name, None)
+        if joint_folder_state is not None:
+            component.isJointsFolderLightBulbOn = joint_folder_state
 
         for body in component.bRepBodies:
-
-            state = display_state_object["bodies"].get(component.name + "_" + body.name, None)
-
-            if state is not None:
-                body.isLightBulbOn = state
+            body_state = display_state_object["bodies"].get(component.name + "_" + body.name, None)
+            if body_state is not None:
+                body.isLightBulbOn = body_state
 
         for sketch in component.sketches:
+            sketch_state = display_state_object["sketches"].get(component.name + "_" + sketch.name, None)
+            if sketch_state is not None:
+                sketch.isLightBulbOn = sketch_state
 
-            state = display_state_object["sketches"].get(component.name + "_" + sketch.name, None)
+        for entity in get_all_construction(component):
+            construction_state = display_state_object["construction"].get(component.name + "_" + entity.name, None)
+            if construction_state is not None:
+                entity.isLightBulbOn = construction_state
 
-            if state is not None:
-                sketch.isLightBulbOn = state
+        for joint in component.joints:
+            joint_state = display_state_object["joints"].get(component.name + "_" + joint.name, None)
+            if joint_state is not None:
+                joint.isLightBulbOn = joint_state
 
 
 def make_message(result):
@@ -213,6 +292,20 @@ def make_message(result):
     elif result.get("type", "") == "Make Component":
         timeline_message += "<b>&nbsp;&nbsp;&nbsp;&nbsp; Component: &nbsp;&nbsp; </b>"
         timeline_message += result["parent_component"] + "<br />"
+
+    elif result.get("type", "") == "Construction Geometry":
+        timeline_message += "<b>&nbsp;&nbsp;&nbsp;&nbsp; Parent Component: &nbsp;&nbsp; </b>"
+        timeline_message += result["parent_component"] + "<br />"
+        timeline_message += "<b>&nbsp;&nbsp;&nbsp;&nbsp; Type: &nbsp;&nbsp; </b>"
+        timeline_message += result["construction_type"] + "<br />"
+
+    elif result.get("type", "") == "Joint":
+        timeline_message += "<b>&nbsp;&nbsp;&nbsp;&nbsp; Parent Component: &nbsp;&nbsp; </b>"
+        timeline_message += result["parent_component"] + "<br />"
+        timeline_message += "<b>&nbsp;&nbsp;&nbsp;&nbsp; Reference 1: &nbsp;&nbsp; </b>"
+        timeline_message += result["part_1_name"] + "<br />"
+        timeline_message += "<b>&nbsp;&nbsp;&nbsp;&nbsp; Reference 2: &nbsp;&nbsp; </b>"
+        timeline_message += result["part_2_name"] + "<br />"
 
     elif result.get("type", "") == "Feature":
         components = result.get("components", [])
@@ -272,6 +365,23 @@ def play_feature():
         feature = adsk.fusion.Feature.cast(timeline_object.entity)
         sketch = adsk.fusion.Sketch.cast(timeline_object.entity)
         occurrence = adsk.fusion.Occurrence.cast(timeline_object.entity)
+        plane = adsk.fusion.ConstructionPlane.cast(timeline_object.entity)
+        axis = adsk.fusion.ConstructionAxis.cast(timeline_object.entity)
+        point = adsk.fusion.ConstructionPoint.cast(timeline_object.entity)
+        joint = adsk.fusion.Joint.cast(timeline_object.entity)
+
+        if plane is not None:
+            construction_entity = plane
+            construction_type = "Plane"
+        elif axis is not None:
+            construction_entity = axis
+            construction_type = "Axis"
+        elif point is not None:
+            construction_entity = point
+            construction_type = "Point"
+        else:
+            construction_entity = None
+            construction_type = ""
 
         if feature is not None:
             isolate()
@@ -324,6 +434,34 @@ def play_feature():
             result["type"] = "Make Component"
             result["occurrence"] = occurrence
             result["parent_component"] = occurrence.component.name
+
+        elif construction_entity is not None:
+            isolate()
+            show_construction(construction_entity)
+            make_component_visible(construction_entity.component)
+
+            result["error_message"] = construction_entity.errorOrWarningMessage
+            result["health_state"] = construction_entity.healthState
+            result["type"] = "Construction Geometry"
+            result["construction_type"] = construction_type
+            result["construction_entity"] = construction_entity
+            result["parent_component"] = construction_entity.component.name
+
+        elif joint is not None:
+            isolate()
+            show_joint(joint)
+            show_occurrence(joint.occurrenceOne)
+            show_occurrence(joint.occurrenceTwo)
+
+            result["error_message"] = joint.errorOrWarningMessage
+            result["health_state"] = joint.healthState
+            result["type"] = "Joint"
+            result["joint"] = joint
+            result["part_1"] = joint.occurrenceOne
+            result["part2"] = joint.occurrenceTwo
+            result["part_1_name"] = joint.occurrenceOne.name
+            result["part_2_name"] = joint.occurrenceTwo.name
+            result["parent_component"] = joint.parentComponent.name
 
         else:
             result["type"] = timeline_object.entity.objectType
